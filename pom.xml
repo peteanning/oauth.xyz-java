@@ -7,7 +7,7 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>2.3.4.RELEASE</version>
-		<relativePath /> <!-- lookup parent from repository -->
+		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 
 	<groupId>io.bspk</groupId>
@@ -22,6 +22,7 @@
 	  <module>as</module>
 	  <module>rs</module>
 	  <module>rc</module>
+      <module>api-test</module>
   </modules>
 	<!-- TODO: description, url, licenses -->
 
