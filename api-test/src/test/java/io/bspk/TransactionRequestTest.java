@@ -2,6 +2,7 @@ package io.bspk;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWK;
+import io.bspk.oauth.xyz.crypto.*;
 import io.bspk.oauth.xyz.data.Interact;
 import io.bspk.oauth.xyz.data.InteractFinish;
 import io.bspk.oauth.xyz.data.Key;
@@ -10,20 +11,23 @@ import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.bouncycastle.jcajce.provider.digest.SHA512;
+import org.greenbytes.http.sfv.ByteSequenceItem;
+import org.greenbytes.http.sfv.Dictionary;
+import org.greenbytes.http.sfv.StringItem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.List;
+import java.time.Instant;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.digest.DigestUtils;
 
 public class TransactionRequestTest {
+
+    public static final String CONTENT_TYPE = "application/json";
 
     public JWK clientKey() {
         try {
@@ -92,7 +96,7 @@ public class TransactionRequestTest {
 
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    String BASE_URL = "http://localhost:6500";
+    private final String BASE_URL = "http://localhost:6500/api/as/transaction";
 
     @Test
     public void auth_server_and_client() throws IOException {
@@ -108,15 +112,95 @@ public class TransactionRequestTest {
 
         String req = objectMapper.writeValueAsString(request);
         RequestSpecification request = RestAssured.given();
-        request.header("Content-Type", "application/json");
-        byte[] cdHash = DigestUtils.sha512(req.getBytes(StandardCharsets.UTF_8));
-        String content_digest = Base64.getEncoder().encodeToString(cdHash);
 
-        request.header("Content-Digest", "sha-512=:" + content_digest + ":");
+        request.header("Content-Type", CONTENT_TYPE);
+        String contentDigest = contentDigest(req);
+        request.header("Content-Digest", contentDigest);
 
-        response = request.body(req).post("/api/as/transaction");
+        Map<String, String> ctx = new HashMap<>();
+        ctx.put("@target-uri", BASE_URL);
+        ctx.put("@method", "POST");
+        ctx.put("content-length", String.valueOf(req.length()));
+        ctx.put("content-type", CONTENT_TYPE);
+        ctx.put("content-digest", contentDigest);
+
+        // now we sign the request which ends up in headers
+        sign(request, ctx);
+
+        response = request.body(req).post();
         System.out.println(response.asString());
         TransactionResponse txnResponse = objectMapper.readValue(response.asString(), TransactionResponse.class);
+
+    }
+
+    private void sign(RequestSpecification request, Map<String, String> ctx) {
+        SignatureParameters sigParams = new SignatureParameters()
+                .setCreated(Instant.now())
+                .setKeyid("gnap-public-client")
+                .setNonce(RandomStringUtils.randomAlphanumeric(13))
+                .setAlg(HttpSigAlgorithm.JOSE)
+                .addComponentIdentifier("@target-uri")
+                .addComponentIdentifier("@method")
+                .addComponentIdentifier("Content-Length")
+                .addComponentIdentifier("Content-Type")
+                .addComponentIdentifier("Content-Digest");
+
+        byte[] baseBytes = createSignatureBase(sigParams, ctx);
+
+        HttpSign httpSign = new HttpSign(HttpSigAlgorithm.JOSE, privateKey());
+
+        byte[] s = httpSign.sign(baseBytes);
+
+        if (s == null) {
+            throw new RuntimeException("Could not sign message.");
+        }
+
+        String sigId = RandomStringUtils.randomAlphabetic(5).toLowerCase();
+
+        Dictionary sigHeader = Dictionary.valueOf(Map.of(sigId, ByteSequenceItem.valueOf(s)));
+        Dictionary sigInputHeader = Dictionary.valueOf(Map.of(sigId, sigParams.toComponentValue()));
+
+        request.header("Signature", sigHeader.serialize());
+        request.header("Signature-Input", sigInputHeader.serialize());
+    }
+
+    /**
+     * This implements the Httpsig spec
+     * @// TODO: 19/05/2022 needs to be refactored to be more generic it is stolen from the ClientApi.java
+     * @param sigParams
+     * @param ctx
+     * @return
+     */
+    public byte[] createSignatureBase(SignatureParameters sigParams, Map<String, String> ctx) {
+        StringBuilder base = new StringBuilder();
+
+        for (StringItem componentIdentifier : sigParams.getComponentIdentifiers()) {
+
+            String componentValue = ctx.get(componentIdentifier.get());
+
+            if (componentValue != null) {
+                // write out the line to the base
+                componentIdentifier.serializeTo(base)
+                        .append(": ")
+                        .append(componentValue)
+                        .append('\n');
+            } else {
+                throw new RuntimeException("Couldn't find a value for required parameter: " + componentIdentifier.serialize());
+            }
+        }
+
+        // add the signature parameters line
+        sigParams.toComponentIdentifier().serializeTo(base)
+                .append(": ");
+        sigParams.toComponentValue().serializeTo(base);
+
+        return base.toString().getBytes();
+    }
+
+    private String contentDigest(String req) {
+        byte[] cdHash = DigestUtils.sha512(req.getBytes(StandardCharsets.UTF_8));
+        String content_digest = Base64.getEncoder().encodeToString(cdHash);
+        return "sha-512=:" + content_digest + ":";
 
     }
 }
