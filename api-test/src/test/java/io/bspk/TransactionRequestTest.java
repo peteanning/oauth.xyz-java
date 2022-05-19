@@ -10,14 +10,18 @@ import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.bouncycastle.jcajce.provider.digest.SHA512;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.commons.codec.digest.DigestUtils;
 
 public class TransactionRequestTest {
 
@@ -105,8 +109,12 @@ public class TransactionRequestTest {
         String req = objectMapper.writeValueAsString(request);
         RequestSpecification request = RestAssured.given();
         request.header("Content-Type", "application/json");
-        response = request.body(req).post("/api/as/transaction");
+        byte[] cdHash = DigestUtils.sha512(req.getBytes(StandardCharsets.UTF_8));
+        String content_digest = Base64.getEncoder().encodeToString(cdHash);
 
+        request.header("Content-Digest", "sha-512=:" + content_digest + ":");
+
+        response = request.body(req).post("/api/as/transaction");
         System.out.println(response.asString());
         TransactionResponse txnResponse = objectMapper.readValue(response.asString(), TransactionResponse.class);
 
