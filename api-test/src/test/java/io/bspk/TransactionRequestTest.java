@@ -18,12 +18,15 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.digest.DigestUtils;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TransactionRequestTest {
 
@@ -96,10 +99,10 @@ public class TransactionRequestTest {
 
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    private final String BASE_URL = "http://localhost:6500/api/as/transaction";
+    private final String BASE_URL = "http://localhost:9834/api/as/transaction";
 
     @Test
-    public void auth_server_and_client() throws IOException {
+    public void auth_server_and_client() throws IOException, URISyntaxException {
         RestAssured.baseURI = BASE_URL;
         request = new TransactionRequest()
                 .setInteract(new InteractRequest()
@@ -130,6 +133,9 @@ public class TransactionRequestTest {
         response = request.body(req).post();
         System.out.println(response.asString());
         TransactionResponse txnResponse = objectMapper.readValue(response.asString(), TransactionResponse.class);
+
+        //@todo need more assertions here
+        assertEquals(txnResponse.getCont().getUri().toString(), "http://host.docker.internal:9834/api/as/transaction/continue");
 
     }
 
