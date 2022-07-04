@@ -22,7 +22,7 @@
 	  <module>as</module>
 	  <module>rs</module>
 	  <module>rc</module>
-      <module>api-test</module>
+    <module>api-test</module>
   </modules>
 	<!-- TODO: description, url, licenses -->
 
