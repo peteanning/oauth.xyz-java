@@ -592,7 +592,7 @@ public class ClientAPI {
 
 			} else {
 				token = pending.getAccessToken();
-				params = pending.getAccessTokenProofParams();
+				params = pending.getProofParams();
 			}
 
 			if (token == null) {
