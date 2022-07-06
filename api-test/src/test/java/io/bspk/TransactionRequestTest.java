@@ -2,6 +2,9 @@ package io.bspk;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWK;
+import io.bspk.httpsig.HttpSigAlgorithm;
+import io.bspk.httpsig.HttpSign;
+import io.bspk.httpsig.SignatureParameters;
 import io.bspk.oauth.xyz.crypto.*;
 import io.bspk.oauth.xyz.data.Interact;
 import io.bspk.oauth.xyz.data.InteractFinish;
