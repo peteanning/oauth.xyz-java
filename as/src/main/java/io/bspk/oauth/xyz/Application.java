@@ -4,7 +4,10 @@ import java.text.ParseException;
 import java.util.List;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.context.ApplicationPidFileWriter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
@@ -29,7 +32,9 @@ import io.bspk.oauth.xyz.json.JWTSerializer;
 public class Application {
 
 	public static void main(String[] args) {
-		SpringApplication.run(Application.class, args);
+		SpringApplication app = new SpringApplication(Application.class);
+		app.addListeners(new ApplicationPidFileWriter("./bin/shutdown.pid"));
+		app.run(args);
 	}
 
 	@Bean
